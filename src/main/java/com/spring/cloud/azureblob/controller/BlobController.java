@@ -1,34 +1,50 @@
 package com.spring.cloud.azureblob.controller;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.WritableResource;
-import org.springframework.util.StreamUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.MimeTypeUtils;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.Charset;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.net.URLConnection;
 
 @RestController
-@RequestMapping("blob")
+@RequestMapping("api")
 public class BlobController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(BlobController.class);
 
-    @Value("azure-blob://testcontainer/test.txt")
-    private Resource blobFile;
+    private final BlobService blobService;
 
-    @GetMapping("/readBlobFile")
-    public String readBlobFile() throws IOException {
-        return StreamUtils.copyToString(
-                this.blobFile.getInputStream(),
-                Charset.defaultCharset());
+    public BlobController(BlobService blobService) {
+        this.blobService = blobService;
     }
 
-    @PostMapping("/writeBlobFile")
-    public String writeBlobFile(@RequestBody String data) throws IOException {
-        try (OutputStream os = ((WritableResource) this.blobFile).getOutputStream()) {
-            os.write(data.getBytes());
+    @GetMapping("files/{fileName}")
+    public ResponseEntity<InputStreamResource> getFileAsBytes(@PathVariable String fileName) {
+        LOGGER.info("retrieving file: {}", fileName);
+        String mimeType = URLConnection.guessContentTypeFromName(fileName);
+        MediaType contentType = new MediaType(MimeTypeUtils.parseMimeType(mimeType));
+        InputStream inputStream;
+        try {
+            inputStream = new ByteArrayInputStream(blobService.getFileAsBytes(fileName));
+        } catch (Exception e) {
+            LOGGER.error("Error occurred retrieving file {}: {}", fileName, e.getMessage());
+            return ResponseEntity.notFound().build();
         }
-        return "file was updated";
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "inline; filename=%s".formatted(fileName))
+                .contentType(contentType)
+                .body(new InputStreamResource(inputStream));
+    }
+
+    @GetMapping("files")
+    public String getFiles() {
+        LOGGER.info("Listing files");
+        return blobService.listFiles();
     }
 }
