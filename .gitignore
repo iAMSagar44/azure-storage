@@ -32,5 +32,11 @@ build/
 ### VS Code ###
 .vscode/
 
-### Azure ###
+### Azure and Terraform ###
 .azure/
+/infra/terraform/.terraform/
+/infra/terraform/.terraform.lock.hcl
+/infra/terraform/setup_env.ps1
+/infra/terraform/setup_env.sh
+/infra/terraform/terraform.tfstate
+/infra/terraform/tfplan
